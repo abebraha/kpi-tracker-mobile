@@ -12,7 +12,7 @@ import {
 import { Colors } from '@/constants/Colors';
 import { FilterBar } from '@/components/FilterBar';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { EmptyState } from 'A/components/EmptyState';
+import { EmptyState } from '@/components/EmptyState'
 import { useApi } from '@/hooks/useApi';
 import { fetchMeetings, Meeting } from '@/services/api';
 
