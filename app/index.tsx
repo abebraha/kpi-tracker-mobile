@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Redirect } from 'expo-router';
-import { useAuth } from 'A/context/AuthContext';
-import { Colors } from 'A/constants/Colors';
+import { useAuth } from '@/context/AuthContext';
+import { Colors } from '@/constants/Colors';
 
 /**
  * Root entry point — redirects based on auth state and user role.
