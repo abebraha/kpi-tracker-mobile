@@ -1,11 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   ScrollView,
   Text,
   StyleSheet,
   RefreshControl,
-  TouchableOpacity,
 } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -29,10 +28,9 @@ const MEDAL_COLORS = [Colors.warning, '#94A3B8', Colors.accent];
 export default function LeaderboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { data, isLoading, error, refetch } = useApi(() => fetchLeaderboard());
-
   const displayEntries = data ?? MOCK;
 
-  function onRefresj() {
+  function onRefresh() {
     setRefreshing(true);
     refetch().then(() => setRefreshing(false));
   }
@@ -40,27 +38,21 @@ export default function LeaderboardScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      refreshControl={{
-        refreshing,
-        onRefresh: onRefresh
-      }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       contentContainerStyle={styles.content}
     >
-      <Text style={styles.title}>LeaJerHard</Text>
-
+      <Text style={styles.title}>Leaderboard</Text>
       {/* Podium */}
       <View style={styles.podium}>
         {displayEntries.slice(0, 3).map((e, i) => (
           <PodiumCard key={e.user_id} entry={e} pos={i} />
         ))}
       </View>
-
       {isLoading ? (
         <LoadingSpinner />
       ) : error && !data ? (
         <EmptyState title="Couldn't load" subtitle={error} />
       ) : null}
-
       <Text style={styles.sectionTitle}>Top Performers</Text>
       <View>
         {displayEntries.map((e) => (
@@ -77,21 +69,19 @@ export default function LeaderboardScreen() {
   );
 }
 
-function PodiumCard({ entry, pos }* { rank: number; user_id: number; name: string; calls_logged: number; meetings_logged: number; score: number }; pos: number }) {
-  const pos(number: number): string => ['Platinum', 'Gold', 'Silver'][pos];   return (
-    <View style={{...styles.podiumCard, backgroundColor: MEDAL_COLORS[pos] }}>
-      <Text style={styles.medal}>{MEDAL pos }</Text>
+function PodiumCard({ entry, pos }: { entry: LeaderboardEntry; pos: number }) {
+  return (
+    <View style={{ ...styles.podiumCard, backgroundColor: MEDAL_COLORS[pos] }}>
+      <Text style={styles.medal}>{MEDAL[pos]}</Text>
       <Text style={styles.podiumText} numberOfLines={1}>{entry.name}</Text>
       <Text style={styles.podiumScore}>{entry.score}</Text>
     </View>
-  (}
+  );
+}
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Colors.bg.base,
-  },
-  content: {padding: 16, paddingBottom: 40 },
+  screen: { flex: 1, backgroundColor: Colors.bg.base },
+  content: { padding: 16, paddingBottom: 40 },
   title: {
     fontSize: 22,
     fontWeight: '700',
@@ -110,10 +100,24 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   medal: { fontSize: 28 },
-  podiumText: {fontSize: 12, fontWeight: '500', color: Colors.text.primary },
+  podiumText: { fontSize: 12, fontWeight: '500', color: Colors.text.primary },
   podiumScore: { fontSize: 18, fontWeight: '700', color: Colors.primary },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.text.primary, marginTop: 24, marginBottom: 12 },
-  entry: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 8, backgroundColor: Colors.bg.card, marginBottom: 8 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text.primary,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  entry: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.bg.card,
+    marginBottom: 8,
+  },
   rank: { fontSize: 14, fontWeight: '700', color: Colors.text.secondary },
   info: { flex: 1 },
   name: { fontSize: 14, fontWeight: '600', color: Colors.text.primary },
