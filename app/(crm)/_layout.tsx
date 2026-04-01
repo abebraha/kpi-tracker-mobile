@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
-import { Colors } from 'A/constants/Colors';
+import { Colors } from '@/constants/Colors';
 
 export default function CRMLayout() {
   return (
