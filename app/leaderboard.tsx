@@ -65,7 +65,7 @@ export default function LeaderboardScreen() {
       <View>
         {displayEntries.map((e) => (
           <View key={e.user_id} style={styles.entry}>
-            <Text style={styles.rank}>{#e.rank}</Text>
+            <Text style={styles.rank}>{e.rank}</Text>
             <View style={styles.info}>
               <Text style={styles.name}>{e.name}</Text>
               <Text style={styles.score}>{e.score} pts</Text>
