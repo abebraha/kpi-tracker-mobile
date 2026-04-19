@@ -1,11 +1,12 @@
-import React, { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import React from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/Colors';
+import { FontSize, Spacing } from '@/constants/Theme';
 
 /**
- * Root entry point — redirects based on auth state and user role.
+ * Root entry point — waits for session then redirects by role.
  */
 export default function IndexScreen() {
   const { user, isLoading } = useAuth();
@@ -14,6 +15,7 @@ export default function IndexScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Signing you in…</Text>
       </View>
     );
   }
@@ -22,14 +24,12 @@ export default function IndexScreen() {
     return <Redirect href="/login" />;
   }
 
-  // Route to the right section based on role
   switch (user.role) {
     case 'admin':
       return <Redirect href="/(admin)/dashboard" />;
-    case 'sdr':
-      return <Redirect href="/(sdr)/dashboard" />;
     case 'recruiter':
       return <Redirect href="/(recruiting)/candidates" />;
+    case 'sdr':
     case 'employee':
       return <Redirect href="/(sdr)/dashboard" />;
     default:
@@ -43,5 +43,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg.base,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Spacing.md,
+  },
+  loadingText: {
+    color: Colors.text.secondary,
+    fontSize: FontSize.sm,
   },
 });

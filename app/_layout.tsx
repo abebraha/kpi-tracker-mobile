@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { AuthProvider } from '@/context/AuthContext';
 import { Colors } from '@/constants/Colors';
 
 export default function RootLayout() {
@@ -13,6 +13,7 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: Colors.bg.card },
           headerTintColor: Colors.text.primary,
           headerTitleStyle: { fontWeight: '700' },
+          headerShadowVisible: false,
           contentStyle: { backgroundColor: Colors.bg.base },
           animation: 'slide_from_right',
         }}
@@ -25,7 +26,7 @@ export default function RootLayout() {
         <Stack.Screen name="(crm)" options={{ headerShown: false }} />
         <Stack.Screen
           name="leaderboard"
-          options={{ title: '🏆 Leaderboard' }}
+          options={{ title: 'Leaderboard', headerBackTitle: 'Back' }}
         />
       </Stack>
     </AuthProvider>

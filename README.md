@@ -29,9 +29,6 @@ app/
   login.tsx             # Google OAuth login screen
   (admin)/              # Admin role screens (tabs)
     dashboard.tsx       # Team overview + KPI metrics
-    performance.tsx     # Performance rankings
-    employees.tsx       # Employee management
-    targets.tsx         # Set KPI targets
   (sdr)/                # SDR role screens (tabs)
     dashboard.tsx       # Personal KPI dashboard
     log-call.tsx        # Log a new call
@@ -48,21 +45,24 @@ app/
 
 components/             # Shared UI components
   MetricCard.tsx        # KPI card with progress bar
-  FilterBar.tsx         # Search + dropdown filters
+  FilterBar.tsx         # Search + filter chips
   CandidateCard.tsx     # Candidate pipeline card
-  CallCard.tsx          # Call item card
+  CallCard.tsx          # Call/meeting list card
   LoadingSpinner.tsx    # Loading state
-  EmptyState.tsx        # Empty/error state
+  EmptyState.tsx        # Empty/error state with optional action
+  ScreenHeader.tsx      # Eyebrow + title + subtitle header
+  SectionTitle.tsx      # Uppercase section label
 
 context/
   AuthContext.tsx       # Auth state + login/logout
 
 services/
-  api.ts                # All API calls (typed)
+  api.ts                # All API calls + TypeScript types
 
 constants/
-  Colors.ts             # IceBreakerBD color system
-  ApiConfig.ts          # Endpoints + config
+  Colors.ts             # IceBreakerBD color system + withAlpha helper
+  Theme.ts              # Spacing, radius, typography, shadow tokens
+  ApiConfig.ts          # Endpoints + candidate status config
 
 hooks/
   useApi.ts             # Generic data-fetching hook
@@ -120,13 +120,16 @@ The Flask backend serves HTML via Jinja2 templates. The following JSON endpoints
 For the full mobile experience, add these JSON endpoints to the backend:
 
 ```python
-GET  /api/me               # Return current_user as JSON
-GET  /api/dashboard        # Role-scoped KPI metrics as JSON
-GET  /api/jobs             # Jobs list as JSON
-GET  /api/employees        # Employees list as JSON
-GET  /api/recruiting/analytics  # Recruiting funnel stats
-PATCH /api/candidates/:id/status  # Update candidate status
+GET   /api/me                         # Return current_user as JSON
+GET   /api/dashboard                  # Role-scoped KPI metrics
+GET   /api/jobs                       # Jobs list
+GET   /api/recruiting/analytics       # Recruiting funnel stats
+PATCH /api/candidates/<id>/status     # Update candidate status
+POST  /auth/logout                    # Clear session cookie
 ```
+
+Until these endpoints are live, screens gracefully fall back to mock data
+so the UI can be designed and reviewed end-to-end.
 
 ---
 

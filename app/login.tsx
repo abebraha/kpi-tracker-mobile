@@ -1,54 +1,59 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
+  ActivityIndicator,
+  Alert,
   Platform,
-  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/context/AuthContext';
-import { Colors } from '@/constants/Colors';
+import { Colors, withAlpha } from '@/constants/Colors';
 import { API_BASE_URL } from '@/constants/ApiConfig';
+import { FontSize, Radius, Spacing } from '@/constants/Theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const { user, isLoading, refreshUser } = useAuth();
   const router = useRouter();
+  const [busy, setBusy] = useState(false);
 
-  // If already logged in, go to root (which redirects by role)
   useEffect(() => {
     if (!isLoading && user) {
       router.replace('/');
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, router]);
 
   async function handleGoogleLogin() {
     const loginUrl = `${API_BASE_URL}/login`;
 
     if (Platform.OS === 'web') {
-      // On web, navigate directly — Flask handles the Google OAuth redirect
       window.location.href = loginUrl;
-    } else {
-      // On native, open in-app browser, then refresh session
-      const result = await WebBrowser.openAuthSessionAsync(
-        loginUrl,
-        'kpitracker://'   // deep link scheme (matches app.json scheme)
-      );
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(loginUrl, 'kpitracker://');
       if (result.type === 'success' || result.type === 'dismiss') {
-        // Try refreshing user session after browser closes
         await refreshUser();
       }
+    } catch (err) {
+      Alert.alert(
+        'Sign-in failed',
+        err instanceof Error ? err.message : 'Please try again in a moment.'
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
     <View style={styles.container}>
-      {/* Logo / Branding */}
       <View style={styles.logoArea}>
         <View style={styles.logoBox}>
           <Text style={styles.logoEmoji}>🧊</Text>
@@ -57,24 +62,29 @@ export default function LoginScreen() {
         <Text style={styles.subtitle}>KPI Tracker</Text>
       </View>
 
-      {/* Hero copy */}
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>Track. Improve. Win.</Text>
         <Text style={styles.heroBody}>
-          Monitor your sales KPIs, manage the recruiting pipeline, and stay on
-          top of team performance — all in one place.
+          Monitor your sales KPIs, manage the recruiting pipeline, and stay on top of team
+          performance — all in one place.
         </Text>
       </View>
 
-      {/* CTA */}
       <View style={styles.ctaSection}>
         <TouchableOpacity
-          style={styles.googleButton}
+          style={[styles.googleButton, busy && styles.googleButtonDisabled]}
           onPress={handleGoogleLogin}
           activeOpacity={0.85}
+          disabled={busy}
         >
-          <Text style={styles.googleLogo}>G</Text>
-          <Text style={styles.googleButtonText}>Continue with Google</Text>
+          {busy ? (
+            <ActivityIndicator color="#111" />
+          ) : (
+            <>
+              <Text style={styles.googleLogo}>G</Text>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </>
+          )}
         </TouchableOpacity>
 
         <Text style={styles.legalNote}>
@@ -98,32 +108,34 @@ const styles = StyleSheet.create({
   },
   logoArea: {
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   logoBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: Colors.primary + '22',
+    width: 88,
+    height: 88,
+    borderRadius: Radius.xl,
+    backgroundColor: withAlpha(Colors.primary, 0.15),
+    borderWidth: 1,
+    borderColor: withAlpha(Colors.primary, 0.4),
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
-  logoEmoji: { fontSize: 42 },
+  logoEmoji: { fontSize: 44 },
   brand: {
     color: Colors.primary,
-    fontSize: 28,
+    fontSize: FontSize.xxxl,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   subtitle: {
     color: Colors.text.secondary,
-    fontSize: 16,
+    fontSize: FontSize.lg,
     fontWeight: '500',
   },
   hero: {
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
   },
   heroTitle: {
     color: Colors.text.primary,
@@ -133,36 +145,38 @@ const styles = StyleSheet.create({
   },
   heroBody: {
     color: Colors.text.secondary,
-    fontSize: 15,
+    fontSize: FontSize.md,
     textAlign: 'center',
     lineHeight: 22,
+    maxWidth: 320,
   },
   ctaSection: {
-    gap: 14,
+    gap: Spacing.md,
   },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: Spacing.md,
     backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xxl,
   },
+  googleButtonDisabled: { opacity: 0.7 },
   googleLogo: {
-    fontSize: 18,
+    fontSize: FontSize.xl,
     fontWeight: '900',
     color: '#4285F4',
   },
   googleButtonText: {
     color: '#111',
-    fontSize: 16,
+    fontSize: FontSize.lg,
     fontWeight: '600',
   },
   legalNote: {
     color: Colors.text.muted,
-    fontSize: 12,
+    fontSize: FontSize.xs,
     textAlign: 'center',
   },
   version: {

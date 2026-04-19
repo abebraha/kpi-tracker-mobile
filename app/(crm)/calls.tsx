@@ -1,28 +1,89 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View,
   FlatList,
-  Text,
-  StyleSheet,
-  RefreshControl,
   Modal,
+  RefreshControl,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { Colors, withAlpha } from '@/constants/Colors';
+import { FontSize, Radius, Spacing } from '@/constants/Theme';
 import { FilterBar } from '@/components/FilterBar';
 import { CallCard } from '@/components/CallCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { EmptyState } from '@/components/EmptyState';
 import { useApi } from '@/hooks/useApi';
-import { fetchCalls, fetchCallAnalysis, Call } from '@/services/api';
+import { fetchCalls, Call } from '@/services/api';
 
 const MOCK_CALLS: Call[] = [
-  { id: 1, title: 'Discovery — Acme Corp', duration: 32, call_date: '2026-03-29', crm_notes: 'Decision maker interested in Q2 pilot.', ai_analysis: { sentiment: 'positive', summary: 'Prospect showed strong interest.', action_items: ['Send proposal', 'Schedule follow-up'] }, created_at: '2026-03-29T14:00:00Z', user_name: 'Alex Johnson' },
-  { id: 2, title: 'Follow-up — TechVentures', duration: 18, call_date: '2026-03-28', crm_notes: 'Budget concerns.', ai_analysis: { sentiment: 'neutral', summary: 'Discussed pricing. CFO sign-off needed.', action_items: ['Send pricing deck'] }, created_at: '2026-03-28T10:30:00Z', user_name: 'Sam Lee' },
-  { id: 3, title: 'Cold call — GlobalFin', duration: 7, call_date: '2026-03-27', crm_notes: 'Left voicemail.', ai_analysis: { sentiment: 'neutral', summary: 'No answer, left voicemail.' }, created_at: '2026-03-27T09:00:00Z', user_name: 'Alex Johnson' },
-  { id: 4, title: 'Objection handling — Zenith', duration: 45, call_date: '2026-03-26', crm_notes: 'Moving to demo.', ai_analysis: { sentiment: 'positive', summary: 'Price objections resolved. Demo scheduled.', action_items: ['Book demo', 'Send case studies'] }, created_at: '2026-03-26T15:00:00Z', user_name: 'Maria Garcia' },
-  { id: 5, title: 'Churn risk — OldClient Inc', duration: 22, call_date: '2026-03-25', crm_notes: 'Escalated to CS.', ai_analysis: { sentiment: 'negative', summary: 'Customer frustrated with support.' }, created_at: '2026-03-25T11:00:00Z', user_name: 'Sam Lee' },
+  {
+    id: 1,
+    title: 'Discovery — Acme Corp',
+    duration: 32,
+    call_date: '2026-03-29',
+    crm_notes: 'Decision maker interested in Q2 pilot.',
+    ai_analysis: {
+      sentiment: 'positive',
+      summary: 'Prospect showed strong interest in the pilot and aligned on timelines.',
+      action_items: ['Send proposal', 'Schedule follow-up for next week'],
+    },
+    created_at: '2026-03-29T14:00:00Z',
+    user_name: 'Alex Johnson',
+  },
+  {
+    id: 2,
+    title: 'Follow-up — TechVentures',
+    duration: 18,
+    call_date: '2026-03-28',
+    crm_notes: 'Budget concerns flagged.',
+    ai_analysis: {
+      sentiment: 'neutral',
+      summary: 'Discussed pricing. CFO sign-off still needed.',
+      action_items: ['Send pricing deck'],
+    },
+    created_at: '2026-03-28T10:30:00Z',
+    user_name: 'Sam Lee',
+  },
+  {
+    id: 3,
+    title: 'Cold call — GlobalFin',
+    duration: 7,
+    call_date: '2026-03-27',
+    crm_notes: 'Left voicemail.',
+    ai_analysis: { sentiment: 'neutral', summary: 'No answer. Voicemail left.' },
+    created_at: '2026-03-27T09:00:00Z',
+    user_name: 'Alex Johnson',
+  },
+  {
+    id: 4,
+    title: 'Objection handling — Zenith',
+    duration: 45,
+    call_date: '2026-03-26',
+    crm_notes: 'Moving to demo.',
+    ai_analysis: {
+      sentiment: 'positive',
+      summary: 'Pricing objections resolved. Demo scheduled.',
+      action_items: ['Book demo', 'Send case studies'],
+    },
+    created_at: '2026-03-26T15:00:00Z',
+    user_name: 'Maria Garcia',
+  },
+  {
+    id: 5,
+    title: 'Churn risk — OldClient Inc',
+    duration: 22,
+    call_date: '2026-03-25',
+    crm_notes: 'Escalated to Customer Success.',
+    ai_analysis: {
+      sentiment: 'negative',
+      summary: 'Customer frustrated with support response times.',
+    },
+    created_at: '2026-03-25T11:00:00Z',
+    user_name: 'Sam Lee',
+  },
 ];
 
 const SENTIMENT_OPTIONS = [
@@ -36,6 +97,7 @@ export default function CallsScreen() {
   const [sentimentFilter, setSentimentFilter] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
+
   const { data, isLoading, error, refetch } = useApi(() => fetchCalls({ per_page: 50 }), []);
 
   const onRefresh = useCallback(async () => {
@@ -46,11 +108,19 @@ export default function CallsScreen() {
 
   const displayCalls = data?.calls ?? MOCK_CALLS;
 
-  const filtered = useMemo(() => displayCalls.filter((c) => {
-    const q = search.toLowerCase();
-    return (!search || c.title.toLowerCase().includes(q) || (c.user_name ?? '').toLowerCase().includes(q)) &&
-      (!sentimentFilter || c.ai_analysis?.sentiment === sentimentFilter);
-  }), [displayCalls, search, sentimentFilter]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return displayCalls.filter((c) => {
+      const matchesSearch =
+        !q ||
+        c.title.toLowerCase().includes(q) ||
+        (c.user_name ?? '').toLowerCase().includes(q) ||
+        (c.crm_notes ?? '').toLowerCase().includes(q);
+      const matchesSentiment =
+        !sentimentFilter || c.ai_analysis?.sentiment === sentimentFilter;
+      return matchesSearch && matchesSentiment;
+    });
+  }, [displayCalls, search, sentimentFilter]);
 
   return (
     <View style={styles.screen}>
@@ -58,23 +128,52 @@ export default function CallsScreen() {
         data={filtered}
         keyExtractor={(c) => String(c.id)}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
         ListHeaderComponent={
           <>
             <View style={styles.summary}>
-              <Text style={styles.summaryText}>{displayCalls.length} calls total</Text>
+              <Text style={styles.summaryCount}>{filtered.length}</Text>
+              <Text style={styles.summaryLabel}>
+                {filtered.length === 1 ? 'call shown' : 'calls shown'}
+              </Text>
             </View>
             <FilterBar
-              searchPlaceholder="Search calls..."
+              searchPlaceholder="Search calls, notes, reps…"
               searchValue={search}
               onSearchChange={setSearch}
-              filters={[{ key: 'sentiment', label: 'Sentiment', options: SENTIMENT_OPTIONS, value: sentimentFilter, onChange: setSentimentFilter }]}
+              filters={[
+                {
+                  key: 'sentiment',
+                  label: 'Sentiment',
+                  options: SENTIMENT_OPTIONS,
+                  value: sentimentFilter,
+                  onChange: setSentimentFilter,
+                },
+              ]}
             />
-            {isLoading && !data && <LoadingSpinner message="Loading calls..." />}
-            {error && !data && <EmptyState icon="\u26a0\ufe0f" title="Could not load calls" subtitle={error} />}
+            {isLoading && !data ? <LoadingSpinner message="Loading calls…" /> : null}
+            {error && !data ? (
+              <EmptyState
+                icon="⚠️"
+                title="Couldn't load calls"
+                subtitle={error}
+                actionLabel="Retry"
+                onAction={refetch}
+              />
+            ) : null}
           </>
         }
-        ListEmptyComponent={!isLoading ? <EmptyState icon="\ud83d\udcde" title="No calls found" subtitle="Try adjusting your search." /> : null}
+        ListEmptyComponent={
+          !isLoading && !error ? (
+            <EmptyState
+              icon="📞"
+              title="No calls match your filters"
+              subtitle="Try clearing search or a different sentiment."
+            />
+          ) : null
+        }
         renderItem={({ item }) => <CallCard call={item} onPress={() => setSelectedCall(item)} />}
       />
       <CallDetailModal call={selectedCall} onClose={() => setSelectedCall(null)} />
@@ -85,45 +184,78 @@ export default function CallsScreen() {
 function CallDetailModal({ call, onClose }: { call: Call | null; onClose: () => void }) {
   if (!call) return null;
   const sentiment = call.ai_analysis?.sentiment;
-  const sentimentColor = sentiment === 'positive' ? Colors.success : sentiment === 'negative' ? Colors.danger : Colors.text.muted;
+  const sentimentColor =
+    sentiment === 'positive'
+      ? Colors.success
+      : sentiment === 'negative'
+      ? Colors.danger
+      : Colors.text.secondary;
+
+  const date = new Date(call.call_date || call.created_at);
+  const dateLabel = Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+
   return (
-    <Modal visible={!!call} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal
+      visible={!!call}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
       <View style={modalStyles.container}>
         <View style={modalStyles.header}>
-          <Text style={modalStyles.title} numberOfLines={2}>{call.title}</Text>
-          <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn}>
-            <Text style={modalStyles.closeBtnText}>\u2715</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={modalStyles.eyebrow}>Call detail</Text>
+            <Text style={modalStyles.title} numberOfLines={2}>
+              {call.title}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn} hitSlop={8}>
+            <Text style={modalStyles.closeBtnText}>✕</Text>
           </TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={modalStyles.content}>
           <View style={modalStyles.metaRow}>
-            {call.user_name && <Text style={modalStyles.meta}>{call.user_name}</Text>}
-            {sentiment && (
-              <View style={[modalStyles.sentimentBadge, { backgroundColor: sentimentColor + '22' }]}>
-                <Text style={[modalStyles.sentimentText, { color: sentimentColor }]}>{sentiment}</Text>
+            <Text style={modalStyles.meta}>⏱ {call.duration} min</Text>
+            {dateLabel ? <Text style={modalStyles.meta}>📅 {dateLabel}</Text> : null}
+            {call.user_name ? <Text style={modalStyles.meta}>👤 {call.user_name}</Text> : null}
+            {sentiment ? (
+              <View
+                style={[modalStyles.sentimentBadge, { backgroundColor: withAlpha(sentimentColor, 0.18) }]}
+              >
+                <Text style={[modalStyles.sentimentText, { color: sentimentColor }]}>
+                  {sentiment}
+                </Text>
               </View>
-            )}
+            ) : null}
           </View>
-          {call.ai_analysis?.summary && (
+
+          {call.ai_analysis?.summary ? (
             <View style={modalStyles.section}>
               <Text style={modalStyles.sectionTitle}>AI Summary</Text>
               <Text style={modalStyles.body}>{call.ai_analysis.summary}</Text>
             </View>
-          )}
-          {(call.ai_analysis?.action_items ?? []).length > 0 && (
+          ) : null}
+
+          {(call.ai_analysis?.action_items?.length ?? 0) > 0 ? (
             <View style={modalStyles.section}>
               <Text style={modalStyles.sectionTitle}>Action Items</Text>
               {call.ai_analysis!.action_items!.map((item, i) => (
-                <Text key={i} style={modalStyles.listItem}>• {item}</Text>
+                <View key={i} style={modalStyles.actionRow}>
+                  <Text style={modalStyles.actionBullet}>✓</Text>
+                  <Text style={modalStyles.body}>{item}</Text>
+                </View>
               ))}
             </View>
-          )}
-          {call.crm_notes && (
+          ) : null}
+
+          {call.crm_notes ? (
             <View style={modalStyles.section}>
               <Text style={modalStyles.sectionTitle}>CRM Notes</Text>
               <Text style={modalStyles.body}>{call.crm_notes}</Text>
             </View>
-          )}
+          ) : null}
         </ScrollView>
       </View>
     </Modal>
@@ -132,24 +264,87 @@ function CallDetailModal({ call, onClose }: { call: Call | null; onClose: () => 
 
 const modalStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg.base },
-  header: { flexDirection: 'row', alignItems: 'flex-start', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 12 },
-  title: { flex: 1, color: Colors.text.primary, fontSize: 18, fontWeight: '700' },
-  closeBtn: { padding: 4 },
-  closeBtnText: { color: Colors.text.muted, fontSize: 18 },
-  content: { padding: 16, gap: 16 },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' },
-  meta: { color: Colors.text.muted, fontSize: 12 },
-  sentimentBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
-  sentimentText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
-  section: { backgroundColor: Colors.bg.card, borderRadius: 12, padding: 14 },
-  sectionTitle: { color: Colors.text.secondary, fontSize: 12, fontWeight: '700', marginBottom: 8 },
-  body: { color: Colors.text.primary, fontSize: 14, lineHeight: 22 },
-  listItem: { color: Colors.text.primary, fontSize: 14, lineHeight: 24 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: Spacing.md,
+  },
+  eyebrow: {
+    color: Colors.primary,
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  title: { color: Colors.text.primary, fontSize: FontSize.xl, fontWeight: '800', marginTop: 2 },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.bg.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeBtnText: { color: Colors.text.secondary, fontSize: FontSize.md, fontWeight: '700' },
+  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: 40 },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    alignItems: 'center',
+  },
+  meta: { color: Colors.text.secondary, fontSize: FontSize.sm },
+  sentimentBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
+  },
+  sentimentText: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  section: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.sm,
+  },
+  sectionTitle: {
+    color: Colors.text.secondary,
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  body: { color: Colors.text.primary, fontSize: FontSize.md, lineHeight: 22, flex: 1 },
+  actionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  actionBullet: {
+    color: Colors.success,
+    fontSize: FontSize.md,
+    fontWeight: '800',
+    marginTop: 1,
+  },
 });
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.bg.base },
-  content: { padding: 16, paddingBottom: 40 },
-  summary: { marginBottom: 8 },
-  summaryText: { color: Colors.text.muted, fontSize: 12 },
+  content: { padding: Spacing.screen, paddingBottom: 40 },
+  summary: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  summaryCount: {
+    color: Colors.text.primary,
+    fontSize: FontSize.xxl,
+    fontWeight: '800',
+  },
+  summaryLabel: { color: Colors.text.muted, fontSize: FontSize.sm },
 });

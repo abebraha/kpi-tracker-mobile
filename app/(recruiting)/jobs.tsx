@@ -1,6 +1,15 @@
-import React, { useState, useMemo } from 'react';
-import { View, FlatList, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Colors, withAlpha } from '@/constants/Colors';
+import { FontSize, Radius, Spacing } from '@/constants/Theme';
+import { FilterBar } from '@/components/FilterBar';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { EmptyState } from '@/components/EmptyState';
 import { useApi } from '@/hooks/useApi';
@@ -13,17 +22,39 @@ const MOCK_JOBS: Job[] = [
   { id: 4, title: 'Head of Marketing', department: 'Marketing', salary_range: '$110k–$140k', status: 'closed', candidate_count: 3, created_at: '2026-01-10T00:00:00Z' },
 ];
 
+const STATUS_OPTIONS = [
+  { label: 'Open', value: 'open' },
+  { label: 'Closed', value: 'closed' },
+];
+
 export default function JobsScreen() {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
-  const { data: jobs, isLoading, error } = useApi(() => fetchJobs(), []);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { data: jobs, isLoading, error, refetch } = useApi(() => fetchJobs(), []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
   const displayJobs = jobs ?? MOCK_JOBS;
 
-  const filtered = useMemo(() => displayJobs.filter(j => {
-    const matchSearch = !search || j.title.toLowerCase().includes(search.toLowerCase()) || (j.department ?? '').toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || j.status === statusFilter;
-    return matchSearch && matchStatus;
-  }), [displayJobs, search, statusFilter]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return displayJobs.filter((j) => {
+      const matchSearch =
+        !q ||
+        j.title.toLowerCase().includes(q) ||
+        (j.department ?? '').toLowerCase().includes(q);
+      const matchStatus = !statusFilter || j.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [displayJobs, search, statusFilter]);
+
+  const openCount = displayJobs.filter((j) => j.status === 'open').length;
 
   return (
     <View style={styles.screen}>
@@ -31,62 +62,162 @@ export default function JobsScreen() {
         data={filtered}
         keyExtractor={(j) => String(j.id)}
         contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
         ListHeaderComponent={
           <>
-            <View style={styles.searchRow}>
-              <TextInput style={styles.searchInput} placeholder="Search jobs..." placeholderTextColor={Colors.text.muted} value={search} onChangeText={setSearch} />
+            <View style={styles.summary}>
+              <View>
+                <Text style={styles.summaryCount}>{openCount}</Text>
+                <Text style={styles.summaryLabel}>open positions</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View>
+                <Text style={styles.summaryCount}>
+                  {displayJobs.reduce((acc, j) => acc + (j.candidate_count ?? 0), 0)}
+                </Text>
+                <Text style={styles.summaryLabel}>total candidates</Text>
+              </View>
             </View>
-            <View style={styles.filterRow}>
-              {(['all', 'open', 'closed'] as const).map(s => (
-                <TouchableOpacity key={s} style={[styles.filterBtn, statusFilter === s && styles.filterBtnActive]} onPress={() => setStatusFilter(s)}>
-                  <Text style={[styles.filterBtnText, statusFilter === s && styles.filterBtnTextActive]}>{s.charAt(0).toUpperCase() + s.slice(1)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {isLoading && !jobs && <LoadingSpinner />}
-            {error && !jobs && <EmptyState icon="\u26a0\ufe0f" title="Could not load jobs" subtitle={error} />}
+            <FilterBar
+              searchPlaceholder="Search jobs or department…"
+              searchValue={search}
+              onSearchChange={setSearch}
+              filters={[
+                {
+                  key: 'status',
+                  label: 'Status',
+                  options: STATUS_OPTIONS,
+                  value: statusFilter,
+                  onChange: setStatusFilter,
+                },
+              ]}
+            />
+            {isLoading && !jobs ? <LoadingSpinner message="Loading jobs…" /> : null}
+            {error && !jobs ? (
+              <EmptyState
+                icon="⚠️"
+                title="Couldn't load jobs"
+                subtitle={error}
+                actionLabel="Retry"
+                onAction={refetch}
+              />
+            ) : null}
           </>
         }
-        ListEmptyComponent={!isLoading ? <EmptyState icon="\u{1F4BC}" title="No jobs found" subtitle="Try changing your search or filter." /> : null}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} activeOpacity={0.8}>
-            <View style={styles.cardHeader}>
-              <View style={styles.titleBlock}>
-                <Text style={styles.jobTitle}>{item.title}</Text>
-                {item.department && <Text style={styles.dept}>{item.department}</Text>}
-              </View>
-              <View style={[styles.badge, { backgroundColor: item.status === 'open' ? Colors.success + '22' : Colors.text.muted + '22' }]}>
-                <Text style={[styles.badgeText, { color: item.status === 'open' ? Colors.success : Colors.text.muted }]}>{item.status === 'open' ? '● Open' : '○ Closed'}</Text>
-              </View>
-            </View>
-            <View style={styles.meta}>
-              {item.salary_range && <Text style={styles.metaItem}>\u{1F4B0} {item.salary_range}</Text>}
-              {item.candidate_count != null && <Text style={styles.metaItem}>\u{1F464} {item.candidate_count} candidate{item.candidate_count !== 1 ? 's' : ''}</Text>}
-            </View>
-          </TouchableOpacity>
-        )}
+        ListEmptyComponent={
+          !isLoading && !error ? (
+            <EmptyState
+              icon="💼"
+              title="No jobs match your filters"
+              subtitle="Try clearing search or switching status."
+            />
+          ) : null
+        }
+        renderItem={({ item }) => <JobCard job={item} />}
       />
     </View>
   );
 }
 
+function JobCard({ job }: { job: Job }) {
+  const open = job.status === 'open';
+  const color = open ? Colors.success : Colors.text.muted;
+  return (
+    <TouchableOpacity style={styles.card} activeOpacity={0.85}>
+      <View style={styles.cardHeader}>
+        <View style={styles.titleBlock}>
+          <Text style={styles.jobTitle}>{job.title}</Text>
+          {job.department ? <Text style={styles.dept}>{job.department}</Text> : null}
+        </View>
+        <View style={[styles.badge, { backgroundColor: withAlpha(color, 0.15) }]}>
+          <View style={[styles.badgeDot, { backgroundColor: color }]} />
+          <Text style={[styles.badgeText, { color }]}>{open ? 'Open' : 'Closed'}</Text>
+        </View>
+      </View>
+      <View style={styles.meta}>
+        {job.salary_range ? (
+          <View style={styles.chip}>
+            <Text style={styles.chipIcon}>💰</Text>
+            <Text style={styles.chipText}>{job.salary_range}</Text>
+          </View>
+        ) : null}
+        {job.candidate_count != null ? (
+          <View style={styles.chip}>
+            <Text style={styles.chipIcon}>👥</Text>
+            <Text style={styles.chipText}>
+              {job.candidate_count} {job.candidate_count === 1 ? 'candidate' : 'candidates'}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.bg.base },
-  content: { padding: 16, paddingBottom: 40 },
-  searchRow: { backgroundColor: Colors.bg.card, borderRadius: 10, paddingHorizontal: 12, marginBottom: 10, borderWidth: 1, borderColor: Colors.border },
-  searchInput: { color: Colors.text.primary, fontSize: 14, paddingVertical: 10 },
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  filterBtn: { flex: 1, borderRadius: 8, paddingVertical: 8, alignItems: 'center', backgroundColor: Colors.bg.card, borderWidth: 1, borderColor: Colors.border },
-  filterBtnActive: { backgroundColor: Colors.primary + '22', borderColor: Colors.primary },
-  filterBtnText: { color: Colors.text.secondary, fontSize: 12, fontWeight: '600' },
-  filterBtnTextActive: { color: Colors.primary },
-  card: { backgroundColor: Colors.bg.card, borderRadius: 12, padding: 14, marginBottom: 10 },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 10 },
+  content: { padding: Spacing.screen, paddingBottom: 40 },
+  summary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+    backgroundColor: Colors.bg.card,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  summaryDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: Colors.border,
+  },
+  summaryCount: {
+    color: Colors.text.primary,
+    fontSize: FontSize.xxl,
+    fontWeight: '800',
+  },
+  summaryLabel: { color: Colors.text.muted, fontSize: FontSize.xs, marginTop: 2 },
+  card: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.md,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+  },
   titleBlock: { flex: 1 },
-  jobTitle: { color: Colors.text.primary, fontSize: 16, fontWeight: '700' },
-  dept: { color: Colors.text.muted, fontSize: 12, marginTop: 2 },
-  badge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeText: { fontSize: 11, fontWeight: '600' },
-  meta: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  metaItem: { color: Colors.text.secondary, fontSize: 12 },
+  jobTitle: { color: Colors.text.primary, fontSize: FontSize.lg, fontWeight: '700' },
+  dept: { color: Colors.text.muted, fontSize: FontSize.xs, marginTop: 2 },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
+  },
+  badgeDot: { width: 6, height: 6, borderRadius: 3 },
+  badgeText: { fontSize: FontSize.xs, fontWeight: '700' },
+  meta: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.bg.input,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+  },
+  chipIcon: { fontSize: FontSize.sm },
+  chipText: { color: Colors.text.secondary, fontSize: FontSize.xs, fontWeight: '600' },
 });

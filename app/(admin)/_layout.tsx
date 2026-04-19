@@ -4,12 +4,10 @@ import { Text } from 'react-native';
 import { Colors } from '@/constants/Colors';
 
 function TabIcon({ focused, icon }: { focused: boolean; icon: string }) {
-  return (
-    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.55 }}>{icon}</Text>
-  );
+  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.55 }}>{icon}</Text>;
 }
 
-export default function SDRLayout() {
+export default function AdminLayout() {
   return (
     <Tabs
       screenOptions={{
@@ -33,22 +31,8 @@ export default function SDRLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'My KPIs',
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="📊" />,
-        }}
-      />
-      <Tabs.Screen
-        name="log-call"
-        options={{
-          title: 'Log Call',
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="📞" />,
-        }}
-      />
-      <Tabs.Screen
-        name="log-meeting"
-        options={{
-          title: 'Log Meeting',
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="🤝" />,
+          title: 'Overview',
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="🏠" />,
         }}
       />
     </Tabs>

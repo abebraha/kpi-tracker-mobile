@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  View,
-  ScrollView,
-  Text,
-  StyleSheet,
   RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { Colors, withAlpha } from '@/constants/Colors';
+import { FontSize, Radius, Spacing } from '@/constants/Theme';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { EmptyState } from '@/components/EmptyState';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { SectionTitle } from '@/components/SectionTitle';
 import { useApi } from '@/hooks/useApi';
 import { fetchLeaderboard, LeaderboardEntry } from '@/services/api';
 
@@ -22,104 +25,227 @@ const MOCK: LeaderboardEntry[] = [
   { rank: 7, user_id: 7, name: 'Riley Park', calls_logged: 20, meetings_logged: 5, score: 122 },
 ];
 
-const MEDAL = ['🥇', '🥈', '🥉'];
-const MEDAL_COLORS = [Colors.warning, '#94A3B8', Colors.accent];
+const MEDALS = ['🥇', '🥈', '🥉'];
+const MEDAL_COLORS = [Colors.warning, '#94A3B8', '#CD7F32'];
+
+function initials(name: string): string {
+  return name
+    .split(' ')
+    .map((s) => s.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export default function LeaderboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { data, isLoading, error, refetch } = useApi(() => fetchLeaderboard());
-  const displayEntries = data ?? MOCK;
+  const entries = data ?? MOCK;
 
-  function onRefresh() {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    refetch().then(() => setRefreshing(false));
-  }
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
+  const [first, second, third] = entries;
+  const podium = [second, first, third].filter(Boolean) as LeaderboardEntry[];
 
   return (
     <ScrollView
       style={styles.screen}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={Colors.primary}
+        />
+      }
     >
-      <Text style={styles.title}>Leaderboard</Text>
-      {/* Podium */}
-      <View style={styles.podium}>
-        {displayEntries.slice(0, 3).map((e, i) => (
-          <PodiumCard key={e.user_id} entry={e} pos={i} />
-        ))}
-      </View>
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : error && !data ? (
-        <EmptyState title="Couldn't load" subtitle={error} />
-      ) : null}
-      <Text style={styles.sectionTitle}>Top Performers</Text>
-      <View>
-        {displayEntries.map((e) => (
-          <View key={e.user_id} style={styles.entry}>
-            <Text style={styles.rank}>{e.rank}</Text>
-            <View style={styles.info}>
-              <Text style={styles.name}>{e.name}</Text>
-              <Text style={styles.score}>{e.score} pts</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
-  );
-}
+      <ScreenHeader
+        eyebrow="This Month"
+        title="Leaderboard"
+        subtitle="Top performers across the team."
+      />
 
-function PodiumCard({ entry, pos }: { entry: LeaderboardEntry; pos: number }) {
-  return (
-    <View style={{ ...styles.podiumCard, backgroundColor: MEDAL_COLORS[pos] }}>
-      <Text style={styles.medal}>{MEDAL[pos]}</Text>
-      <Text style={styles.podiumText} numberOfLines={1}>{entry.name}</Text>
-      <Text style={styles.podiumScore}>{entry.score}</Text>
-    </View>
+      {isLoading && !data ? (
+        <LoadingSpinner message="Loading rankings…" />
+      ) : error && !data ? (
+        <EmptyState
+          icon="⚠️"
+          title="Couldn't load leaderboard"
+          subtitle={error}
+          actionLabel="Retry"
+          onAction={refetch}
+        />
+      ) : entries.length === 0 ? (
+        <EmptyState icon="🏆" title="No scores yet" subtitle="Log calls and meetings to climb the board." />
+      ) : (
+        <>
+          {podium.length > 0 ? (
+            <View style={styles.podium}>
+              {podium.map((entry) => {
+                const position = entry.rank - 1;
+                const pedestalHeight = entry.rank === 1 ? 96 : entry.rank === 2 ? 72 : 56;
+                return (
+                  <View key={entry.user_id} style={styles.podiumCol}>
+                    <View
+                      style={[
+                        styles.podiumAvatar,
+                        {
+                          borderColor: MEDAL_COLORS[position] ?? Colors.border,
+                          backgroundColor: withAlpha(MEDAL_COLORS[position] ?? Colors.primary, 0.18),
+                        },
+                      ]}
+                    >
+                      <Text style={styles.podiumInitials}>{initials(entry.name)}</Text>
+                    </View>
+                    <Text style={styles.medal}>{MEDALS[position]}</Text>
+                    <Text style={styles.podiumName} numberOfLines={1}>
+                      {entry.name}
+                    </Text>
+                    <Text style={styles.podiumScore}>{entry.score} pts</Text>
+                    <View
+                      style={[
+                        styles.pedestal,
+                        {
+                          height: pedestalHeight,
+                          backgroundColor: withAlpha(MEDAL_COLORS[position] ?? Colors.primary, 0.2),
+                          borderColor: withAlpha(MEDAL_COLORS[position] ?? Colors.primary, 0.5),
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.pedestalRank, { color: MEDAL_COLORS[position] }]}>
+                        {entry.rank}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+
+          <SectionTitle title="Full Rankings" />
+          <View style={styles.list}>
+            {entries.map((entry) => (
+              <View key={entry.user_id} style={styles.row}>
+                <Text style={styles.rank}>#{entry.rank}</Text>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initials(entry.name)}</Text>
+                </View>
+                <View style={styles.rowInfo}>
+                  <Text style={styles.rowName} numberOfLines={1}>
+                    {entry.name}
+                  </Text>
+                  <Text style={styles.rowMeta}>
+                    {entry.calls_logged} calls · {entry.meetings_logged} meetings
+                  </Text>
+                </View>
+                <Text style={styles.rowScore}>{entry.score}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.bg.base },
-  content: { padding: 16, paddingBottom: 40 },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.text.primary,
-    marginBottom: 24,
-  },
+  content: { padding: Spacing.screen, paddingBottom: 40 },
   podium: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    gap: 12,
-    marginBottom: 24,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
   },
-  podiumCard: {
+  podiumCol: {
+    flex: 1,
     alignItems: 'center',
-    borderRadius: 16,
-    padding: 16,
+    gap: 4,
   },
-  medal: { fontSize: 28 },
-  podiumText: { fontSize: 12, fontWeight: '500', color: Colors.text.primary },
-  podiumScore: { fontSize: 18, fontWeight: '700', color: Colors.primary },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+  podiumAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  podiumInitials: {
     color: Colors.text.primary,
-    marginTop: 24,
-    marginBottom: 12,
+    fontWeight: '800',
+    fontSize: FontSize.lg,
   },
-  entry: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  medal: { fontSize: 22 },
+  podiumName: {
+    color: Colors.text.primary,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    textAlign: 'center',
+    maxWidth: 100,
+  },
+  podiumScore: {
+    color: Colors.text.secondary,
+    fontSize: FontSize.xs,
+  },
+  pedestal: {
+    width: '100%',
+    marginTop: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: Colors.bg.card,
-    marginBottom: 8,
+    justifyContent: 'center',
   },
-  rank: { fontSize: 14, fontWeight: '700', color: Colors.text.secondary },
-  info: { flex: 1 },
-  name: { fontSize: 14, fontWeight: '600', color: Colors.text.primary },
-  score: { fontSize: 12, color: Colors.primary },
+  pedestalRank: {
+    fontSize: FontSize.xxl,
+    fontWeight: '800',
+  },
+  list: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  rank: {
+    color: Colors.text.muted,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    width: 36,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: withAlpha(Colors.primary, 0.15),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: Colors.primary,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
+  rowInfo: { flex: 1 },
+  rowName: { color: Colors.text.primary, fontSize: FontSize.md, fontWeight: '600' },
+  rowMeta: { color: Colors.text.muted, fontSize: FontSize.xs, marginTop: 2 },
+  rowScore: {
+    color: Colors.primary,
+    fontSize: FontSize.md,
+    fontWeight: '800',
+  },
 });
