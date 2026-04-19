@@ -143,6 +143,24 @@ On **native (iOS/Android)**: `expo-web-browser` opens the Flask Google OAuth flo
 
 ---
 
+## Deploying the Web Build to Railway
+
+The repo ships with `railway.json` pre-configured for Expo Web.
+
+1. In the Railway dashboard, pick **New Project → Deploy from GitHub repo** and
+   select `abebraha/kpi-tracker-mobile`.
+2. Railway detects `railway.json` and uses:
+   - **Build:** `npm ci && npx expo export --platform web`
+   - **Start:** `npx serve dist --single --listen tcp://0.0.0.0:$PORT`
+3. Add an environment variable in Railway → **Variables**:
+   - `EXPO_PUBLIC_API_BASE_URL = https://app.icebreakerbd.com`
+4. Every push to the selected branch redeploys automatically.
+
+The iOS / Android builds are **not** deployed via Railway — those ship through
+Expo Application Services (EAS Build) to the App Store / Play Store.
+
+---
+
 ## Design System
 
 Colors are defined in `constants/Colors.ts`. The palette is:
